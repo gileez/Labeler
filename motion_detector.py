@@ -9,6 +9,12 @@ import imutils
 import time
 import cv2
 
+## GLOBALS
+ALLOWED_GAP = 3
+HARD_THRESHOLD = 0.8
+SOFT_THRESHOLD = 0.5
+## end GLOBALS
+
 #=============== HELPER FUNCTIONS=====================
 def toPoints(bb):
 	# returns [X1,Y1,X2,Y2]
@@ -48,7 +54,8 @@ def rectOverlap(bb1,bb2,threshhold=0.5):
 		if float(rectArea(overlapbb))/max(rectArea(bb1),rectArea(bb2)) > threshhold:
 			return overlapbb
 	return overlapbb
-	
+
+#==============================END HELPER============================
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -67,14 +74,25 @@ else:
 
 # initialize the first frame in the video stream
 firstFrame = None
+frame_num = 0
+tracks = {}
+results = []
 
 # loop over the frames of the video
 while True:
 	# grab the current frame and initialize the occupied/unoccupied
 	# text
+	frame_num+=1
+	# clean up tracks
+	trackDel = []
+	for t in tracks.keys():
+		if tracks[t]['frames'][-1]['frameNum'] + ALLOWED_GAP < frame_num:
+			trackDel.append(t)
+	for t in trackDel:
+		del(tracks[t])
+		
 	(grabbed, frame) = camera.read()
 	text = "Unoccupied"
-
 	# ====== TODO ============
 	#classes = get yolo classifications
 	yoloRects = {}
@@ -122,29 +140,61 @@ while True:
 		# and update the text
 		boundingBoxes.append(cv2.boundingRect(c))
 	bb2delete =[]
+	#-----Joining overlapping bounding boxes----
 	for i in range(len(boundingBoxes)-1,0,-1):
-		if i > 0:
-			for j in range(i-1,-1,-1):
-				if rectOverlap(boundingBoxes[i],boundingBoxes[j],threshhold=None):
-					rect = rectUnion(boundingBoxes[i],boundingBoxes[j])
-					if rect:
-						boundingBoxes[j] = rect
-						bb2delete.append(i)
-						break;
+		for j in range(i-1,-1,-1):
+			if rectOverlap(boundingBoxes[i],boundingBoxes[j],threshhold=None):
+				rect = rectUnion(boundingBoxes[i],boundingBoxes[j])
+				if rect:
+					boundingBoxes[j] = rect
+					bb2delete.append(i)
+					break;
 		
 	for i in bb2delete:
 		boundingBoxes.pop(i)
-		
-	
+	#-----------------end joining----------------
+	used = []
 	for b in boundingBoxes:
-		# check for match against yolo
+		if b in used:
+			continue
 		for c in yoloRects:
+			if b in used:
+				continue
 			yRect = yoloRects[c]['rect']
+			# check for match against yolo rect
 			if rectOverlap(yRect, b):
 				#check for match with previously saved tracks
-				for t in tracks:
-				#dump tracked frames into output buffer
-			#start new tracking channel
+				if tracks.get(c) and tracks[c]['frames'][-1]['frameNum'] == frame_num - 1:
+					if rectOverlap(tracks[c]['frames'][-1]['rect'], b):
+						#BINGO!!!! dump tracked frames into results
+						results.append(tracks[c])
+						del(tracks[c])
+					else:
+						# for now assuming only 1 instance of each class
+						# a mismatch between tracker and new yolo classification
+						# implies tracker data is garbage.
+						del(tracks[c]) # not necessary but doing this explicitly as a reminder
+				
+				#start new tracking channel
+				tracks[c] = {'frames':[{
+											'rect': b,
+											'class': c,
+											'frameNum': frame_num,
+											'yoloRect': yRect
+																	}]}
+				used.append(b) #want to make sure we don't try and use this twice
+				
+	for b in boundingBoxes:
+		if b in used:
+			continue		
+		for t in tracks:
+			if t.get('frames'):
+				if rectOverlap(t['frames'][-1]['rect'], b):
+					used.append(b)
+					t['frames'].append({	'rect': b,
+											'class': t['frames'][-1]['class'],
+											'frameNum': frame_num})
+
 			
 		x, y, w, h = b[0], b[1], b[2], b[3]
 		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
