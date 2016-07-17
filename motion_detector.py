@@ -75,6 +75,16 @@ while True:
 	(grabbed, frame) = camera.read()
 	text = "Unoccupied"
 
+	# ====== TODO ============
+	#classes = get yolo classifications
+	yoloRects = {}
+	#for c in list(set(classes_to_detect & classes)):
+	#	yoloRects[c] = yolo.getRect()....
+	#		
+	#if not (tracks or yoloRects):
+	#	theres no reason to perform tracking on this frame...go to next one
+	#=========================
+	
 	# if the frame could not be grabbed, then we have reached the end
 	# of the video
 	if not grabbed:
@@ -127,6 +137,15 @@ while True:
 		
 	
 	for b in boundingBoxes:
+		# check for match against yolo
+		for c in yoloRects:
+			yRect = yoloRects[c]['rect']
+			if rectOverlap(yRect, b):
+				#check for match with previously saved tracks
+				for t in tracks:
+				#dump tracked frames into output buffer
+			#start new tracking channel
+			
 		x, y, w, h = b[0], b[1], b[2], b[3]
 		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 		text = "Occupied"
