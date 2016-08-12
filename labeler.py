@@ -91,7 +91,7 @@ args = vars(ap.parse_args())
 # # otherwise, we are reading from a video file
 # else:
 #     camera = cv2.VideoCapture(args["video"])
-vidFile = '/home/gili/dev/YOLO/darknet/1.mp4'
+vidFile = '/home/gili/dev/Labeler/darknet/1.mp4'
 camera = cv2.VideoCapture(vidFile)
 USE_PERSON_DETECTOR = 1
 if USE_PERSON_DETECTOR:
@@ -105,7 +105,7 @@ tracks = {}
 results = []
 
 #init network
-HOMEDIR = os.path.join(os.path.dirname(__file__),'../')
+HOMEDIR = os.path.join(os.path.dirname(__file__),'darknet/')
 myYolo=YOLO.YOLO(HOMEDIR+'cfg/yolo-small.cfg', HOMEDIR+'yolo-small.weights')
 # loop over the frames of the video
 while True:
@@ -282,7 +282,7 @@ cv2.destroyAllWindows()
 print "got %d results holding %d new frames" %(len(results), tot_new_frames)
 # Generating images from results
 # prep folder
-res_dir="/home/gili/dev/YOLO/LabelerRes"
+res_dir="/home/gili/dev/Labeler/results"
 if not os.path.exists(res_dir):
     os.mkdir(res_dir)
 maxFolder=0
